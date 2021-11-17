@@ -23,18 +23,13 @@
 module color_sensor(
 input freqIn,
 input clk,
+output RMF,RMB,LMF,LMB, LM_pwm,RM_pwm,  
 output select0,
 output select1,
 output reg select2,
 output reg select3,
 output EO,
-output JC3,
-output JC4,
-output JC9,
-output JC10,
 output [3:0]an, 
-output pwm1,
-output pwm2,
 output a, b, c, d, e, f, g
     );
     reg [24:0] red;
@@ -42,15 +37,25 @@ output a, b, c, d, e, f, g
     reg [24:0] blue;
     reg [24:0] clear;
     reg prevFreq;
-    reg [26:0]counter, counter_r, counter_L, pulsewidth_r; 
-    reg [26:0]clkCount;
+    reg [26:0] counter;
+    reg [26:0] clkCount;
     reg [24:0] freqCount;
     reg [24:0] freq;
     reg [6:0] motor_temp;
     reg JC3_temp, JC4_temp, JC9_temp, JC10_temp, curr_pwm_r, curr_pwm_L;
     reg [3:0]sseg;
     reg [6:0]sseg_temp;
-    reg [4:0] colState;
+    reg [3:0] colState;
+    
+    reg[22:0] counter_r;
+    reg[22:0] counter_L;
+    reg[22:0] pulsewidth_r;
+    reg[22:0] pulsewidth_L;
+    reg RM_pwm_temp;
+    reg LM_pwm_temp;
+    
+    reg [6:0] motor_temp;
+    reg RMF_temp, RMB_temp, LMF_temp, LMB_temp;
     initial begin
     red = 0;
     green = 0;
@@ -68,7 +73,7 @@ output a, b, c, d, e, f, g
        
     assign EO = 0;
     assign select0 = 1;
-    assign select1 = 1;
+    assign select1 = 0;
     //assign select2 = 0;
     //assign select3 = 1;
     assign an = 4'b0111;
@@ -89,172 +94,44 @@ output a, b, c, d, e, f, g
             counter <= 0;
         end
     end
-    /*
-      always@(posedge clk)
+    
+    always@(negedge clk)
     begin
         if(counter_r == 1666667)
             counter_r <= 0;
         else
             counter_r <= counter_r +1;
         if(counter_r < pulsewidth_r)
-            curr_pwm_r  = 1;
+            RM_pwm_temp  = 1;
         else
-            curr_pwm_r = 0;  
+            RM_pwm_temp = 0;  
     end
-    */
-    /*
-    always@(posedge clk)
+    
+    always@(negedge clk)
     begin
         if(counter_L == 1666667)
             counter_L <= 0;
         else
             counter_L <= counter_L +1;
-        if(counter_L < pulsewidth_r)
-            curr_pwm_L  = 1;
+        if(counter_L < pulsewidth_L)
+            LM_pwm_temp = 1;
         else
-            curr_pwm_L = 0;  
-    end*/
-    /*always@ (posedge clk)
-    begin 
-        clkCount <= clkCount + 1;
-        
-        if( clkCount == 12_500_000 ) // red filter select
-        begin
-            select2 <= 0;
-            select3 <= 1;
-            red <= freq;
-        end
-        else if( clkCount == 25_000_000 ) // blue filter select
-        begin
-            select2 <= 1;
-            select3 <= 1;
-            blue <= freq;
-        end
-        else if( clkCount == 37_500_000 ) // green filter
-        begin
-            select2 <= 1;
-            select3 <= 0;
-            green <= freq;
-        end 
-        else if( clkCount == 50_000_000 ) // clear filter select
-        begin
-            select2 <= 0;
-            select3 <= 0;
-            clear <= freq;
-            clkCount <= 0;
-            if((green > red && green > blue && green > clear))
-            begin
-            sseg_temp = 7'b0111111;
-            end
-            else 
-            begin
-            sseg_temp = 7'b0000000;
-            end
-            /*if(green > red && green > blue && green > clear)
-            begin
-                //motor_temp <= 4'd3;
-                //sseg_temp <= 4'd1;
-                sseg_temp   = 7'b0000010;
-            end
-            else if(red > green && red > blue && red > clear)
-            begin
-               // motor_temp = 4'd0;
-               //sseg_temp <= 4'd0;
-               sseg_temp   = 7'b0101111;
-            end
-            else if(blue > green && blue > red && blue > clear)
-            begin
-                //sseg_temp <= 4'd2;
-                sseg_temp   = 7'b0000011;
-            end
-            else if(clear > green && clear > blue && clear > red)
-            begin
-                //motor_temp = motor_temp;
-                //sseg_temp = 4'd3;
-                sseg_temp   = 7'b1000110;
-            end
-            else
-            begin
-            sseg_temp = 7'b0111111;
-            end
-            clkCount <= 0;
-        end
-    end */ 
-   /*
-   always @(*)
-    begin
-    case(motor_temp)
-        4'd0:
-            begin
-                JC3_temp  = 0;
-                JC4_temp  = 0;
-                JC9_temp  = 0;
-                JC10_temp = 0;
-            end
-        
-        4'd1: //turn right
-            begin
-                JC3_temp = 0;
-                JC4_temp = 1;
-                JC9_temp = 0;
-                JC10_temp = 0;
-            end
-        4'd2: //turn left
-            begin
-                JC3_temp = 0;
-                JC4_temp = 0;
-                JC9_temp = 1;
-                JC10_temp = 0;
-            end 
-        4'd3: //forward
-            begin
-                JC3_temp = 0;
-                JC4_temp = 1;
-                JC9_temp = 1;
-                JC10_temp = 0;
-            end 
-        4'd4: //backwards
-            begin
-                JC3_temp = 1;
-                JC4_temp = 0;
-                JC9_temp = 0;
-                JC10_temp = 1;
-            end 
-        default: //no moving
-            begin
-                JC3_temp  = 0;
-                JC4_temp  = 0;
-                JC9_temp  = 0;
-                JC10_temp = 0;
-            end
-        endcase
+            LM_pwm_temp = 0;  
     end
-    /*always @ (*)
- begin
-  case(sseg)
-   4'd0  : sseg_temp   = 7'b0101111; //to display R 
-   4'd1  : sseg_temp   = 7'b0000010; //to display G 
-   4'd2  : sseg_temp   = 7'b1111100; //to display B
-   4'd3  : sseg_temp   = 7'b1000110; //to display C
-   default : sseg_temp = 7'b0111111; //to display -
-  endcase
- end*/
-    
-    assign {g, f, e, d, c, b, a} = sseg_temp;
-    
+
     always@ (posedge clk)
     begin
     case(colState)
     0 : begin // red filter select
             clkCount <= clkCount + 1;
-            //sseg_temp   = 7'b0000010;
             if(clkCount == 12_500_000)
             begin 
                 red <= freq;
+                //red = red - 10000;
                 clkCount <= 0;
                 colState <= 1;
-                select2 = 0;
-                select3 = 1;
+                select2 <= 0;
+                select3 <= 1;
             end
         end
         
@@ -265,8 +142,8 @@ output a, b, c, d, e, f, g
                 blue <= freq;
                 clkCount <= 0;
                 colState <= 2;
-                select2 = 1;
-                select3 = 1;
+                select2 <= 1;
+                select3 <= 1;
             end
         end
     2 : begin
@@ -276,76 +153,109 @@ output a, b, c, d, e, f, g
                 green <= freq;
                 clkCount <= 0;
                 colState <= 3;
-                select2 = 1;
-                select3 = 0;
+                select2 <= 0;
+                select3 <= 0;
             end
         end
     3: begin
-            clkCount <= clkCount + 1;
-            if(clkCount == 12_500_000)
-            begin
-                clear <= freq;
-                clkCount <= 0;
-                colState <= 4;
-                select2 = 0;
-                select3 = 0;
-            end
-        end
-    4: begin
-        /*if( red > 25000 && green > 2000 && blue > 2000 &  clear > 2000 && red != green && green != blue && blue != clear && clear != red)
+        /*if( red > green && red > blue/*red > 2000 && green > 2000 && blue > 2000 && red != green && green != blue && blue != red)
         begin
             sseg_temp = 7'b0111111;
         end
         else 
         begin
             sseg_temp = 7'b0000000;
-        end
-        */
-        if(green > blue && green > red)
+        end*/
+        
+            if(blue < green && red > blue)
             begin
-                sseg_temp   = 7'b0000010;
-                //motor_temp = 4'd3;
-                //pulsewidth_r = 1333333;
+                sseg_temp <= 7'b0000011;
+                pulsewidth_L <= 833334;
+                pulsewidth_r <= 833334;
+                motor_temp <= 4'd0;
             end
-            else if(red > green && red > blue) //&& red > clear)
+            else if(red < green && red < blue && red > 1800)// && red >= 10000)
             begin
-               sseg_temp   = 7'b0101111;
-               //motor_temp = 4'd0;
+                sseg_temp   <= 7'b0101111;
+                motor_temp <= 4'd3;
             end
-            else if(blue > green && blue > red )//&& blue > red && blue > clear)
+            else if(green < blue && green < red && green > 2500)
             begin
-                sseg_temp   = 7'b0000011;
-               // motor_temp = 4'd3;
-               // pulsewidth_r = 833333;
-                
+                sseg_temp <= 7'b0000010;
+                pulsewidth_L <= 1666667;
+                pulsewidth_r <= 1666667;
+                motor_temp <= 4'd0;
             end
-            /*else if(clear > green && clear > blue && clear > red)
-            begin
-                //motor_temp = motor_temp;
-                //sseg_temp = 4'd3;
-                sseg_temp   = 7'b1000110;
-            end*/
-            
             else
             begin
-            sseg_temp = 7'b0111111;
+            sseg_temp <= 7'b0111111;
             end
             colState <= 0;
+            select2 <= 0;
+            select3 <= 0;
         end
-        
-        
-        
-    //default : 
-    
     endcase
     end
-    
-    assign pwm1 = curr_pwm_L;
-    assign pwm2 = curr_pwm_r;   
-    assign JC3 = JC3_temp;
-    assign JC4 = JC4_temp;
-    assign JC9 = JC9_temp;
-    assign JC10 = JC10_temp; 
-    
-endmodule
+    assign {g, f, e, d, c, b, a} = sseg_temp;
 
+    
+    always@(*)
+     begin 
+        case(motor_temp)
+            4'd0: // forwards
+                begin
+                    RMF_temp  =  1;
+                    RMB_temp  =  0;
+                    LMF_temp  =  1;
+                    LMB_temp  =  0;
+                end
+            4'd1: // left turn
+                begin
+                    RMF_temp  =  1;
+                    RMB_temp  =  0;
+                    LMF_temp  =  0;
+                    LMB_temp  =  1;
+                end
+           4'd2: // right turn
+                begin
+                    RMF_temp  =  0;
+                    RMB_temp  =  1;
+                    LMF_temp  =  1;
+                    LMB_temp  =  0;
+                end
+          4'd3: // Stop
+                begin
+                    RMF_temp  =  0;
+                    RMB_temp  =  0;
+                    LMF_temp  =  0;
+                    LMB_temp  =  0;
+                end
+          4'd4: // Backwards
+                begin
+                    RMF_temp  =  0;
+                    RMB_temp  =  1;
+                    LMF_temp  =  0;
+                    LMB_temp  =  1;
+                end
+           default: // forwards
+                begin
+                    RMF_temp  =  1;
+                    RMB_temp  =  0;
+                    LMF_temp  =  1;
+                    LMB_temp  =  0;
+                end
+        endcase
+     end
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    
+    assign RM_pwm = RM_pwm_temp; //JC2
+    assign LM_pwm = LM_pwm_temp; //JC8
+    
+    assign RMF = RMF_temp;
+    assign RMB = RMB_temp;
+    assign LMF = LMF_temp;
+    assign LMB = LMB_temp;
+    
+endmodule   
